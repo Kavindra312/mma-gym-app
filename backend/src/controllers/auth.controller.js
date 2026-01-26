@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 // In-memory user store (replace with database later)
 const users = new Map();
@@ -19,7 +19,7 @@ const generateTokens = (user) => {
   );
 
   const refreshToken = jwt.sign(
-    { userId: user.id, tokenId: uuidv4() },
+    { userId: user.id, tokenId: crypto.randomUUID() },
     JWT_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRES_IN }
   );
@@ -66,7 +66,7 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const user = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName: firstName || '',

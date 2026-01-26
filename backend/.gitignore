@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build
+dist/
+
+# Testing
+coverage/
+
+# OS files
+.DS_Store

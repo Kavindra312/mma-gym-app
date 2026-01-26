@@ -31,3 +31,6 @@ coverage/
 # Misc
 *.tgz
 .cache/
+
+# Claude
+.claude/

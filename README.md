@@ -421,16 +421,67 @@ API documentation is available in the `docs/API.md` file.
 
 ### Quick Reference
 
-**Base URL:** `http://localhost:3000/api`
+**Base URL:** `http://localhost:3001/api`
 
 **Authentication:** Bearer token in `Authorization` header
 
-**Key Endpoints:**
+### Authentication Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | No | Register a new user account |
+| POST | `/auth/login` | No | Login and receive JWT tokens |
+| POST | `/auth/refresh` | No | Refresh expired access token |
+| GET | `/auth/me` | Yes | Get current user profile |
+| POST | `/auth/logout` | No | Invalidate refresh token |
+
+#### Register User
+```bash
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "firstName": "John",
+  "lastName": "Doe",
+  "role": "student"  // student, coach, or head_coach
+}
+```
+
+#### Login
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+# Response includes accessToken (15min) and refreshToken (7 days)
+```
+
+#### Get Current User (Protected)
+```bash
+GET /api/auth/me
+Authorization: Bearer <accessToken>
+```
+
+#### Refresh Token
+```bash
+POST /api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "<your-refresh-token>"
+}
+```
+
+### Other Endpoints (Coming Soon)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/auth/register` | Register new user |
-| POST | `/auth/login` | Login user |
 | GET | `/gyms` | List all gyms |
 | POST | `/gyms` | Create new gym |
 | GET | `/gyms/:id/timetables` | Get gym timetables |

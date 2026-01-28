@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
+const db = require('../src/db/knex');
 
 describe('Auth Endpoints', () => {
   let accessToken;
@@ -10,6 +11,29 @@ describe('Auth Endpoints', () => {
     firstName: 'Test',
     lastName: 'User',
   };
+
+  // Clean up test data before and after all tests
+  beforeAll(async () => {
+    // Delete any existing test user
+    await db('refresh_tokens')
+      .whereIn('user_id', db('users').select('id').where('email', testUser.email))
+      .del();
+    await db('users').where('email', testUser.email).del();
+    await db('users').where('email', 'new@example.com').del();
+    await db('users').where('email', 'role@example.com').del();
+  });
+
+  afterAll(async () => {
+    // Clean up test data
+    await db('refresh_tokens')
+      .whereIn('user_id', db('users').select('id').where('email', testUser.email))
+      .del();
+    await db('users').where('email', testUser.email).del();
+    await db('users').where('email', 'new@example.com').del();
+    await db('users').where('email', 'role@example.com').del();
+    // Close database connection
+    await db.destroy();
+  });
 
   describe('POST /api/auth/register', () => {
     it('should register a new user', async () => {

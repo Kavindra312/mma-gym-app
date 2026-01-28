@@ -1,9 +1,9 @@
 const jwt = require('jsonwebtoken');
-const { getUsers } = require('../controllers/auth.controller');
+const db = require('../db/knex');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -23,14 +23,10 @@ const authenticate = (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const users = getUsers();
-    let user = null;
-    for (const u of users.values()) {
-      if (u.id === decoded.userId) {
-        user = u;
-        break;
-      }
-    }
+    const user = await db('users')
+      .where({ id: decoded.userId })
+      .whereNull('deleted_at')
+      .first();
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
@@ -50,7 +46,9 @@ const authorize = (...roles) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    if (!roles.includes(req.user.role)) {
+    // Note: Role-based auth now depends on gym_staff table for gym-specific roles
+    // This basic authorize checks user-level roles if needed
+    if (roles.length > 0 && !roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 

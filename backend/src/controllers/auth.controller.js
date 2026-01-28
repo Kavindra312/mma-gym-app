@@ -1,10 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-
-// In-memory user store (replace with database later)
-const users = new Map();
-const refreshTokens = new Map();
+const db = require('../db/knex');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
@@ -13,7 +10,7 @@ const SALT_ROUNDS = 10;
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
+    { userId: user.id, email: user.email },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -30,16 +27,15 @@ const generateTokens = (user) => {
 const sanitizeUser = (user) => ({
   id: user.id,
   email: user.email,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  role: user.role,
-  createdAt: user.createdAt,
+  firstName: user.first_name,
+  lastName: user.last_name,
+  createdAt: user.created_at,
 });
 
 // POST /api/auth/register
 const register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, role = 'student' } = req.body;
+    const { email, password, firstName, lastName, role } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -54,31 +50,38 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    if (users.has(email.toLowerCase())) {
-      return res.status(409).json({ error: 'Email already registered' });
+    // Roles are assigned per-gym via gym_staff table, not during registration
+    if (role) {
+      return res.status(400).json({ error: 'Invalid role' });
     }
 
-    const validRoles = ['student', 'coach', 'head_coach'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
+    // Check if email already exists
+    const existing = await db('users').where({ email: email.toLowerCase() }).first();
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const user = {
-      id: crypto.randomUUID(),
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      firstName: firstName || '',
-      lastName: lastName || '',
-      role,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.set(user.email, user);
+    // Insert user into database
+    const [user] = await db('users')
+      .insert({
+        email: email.toLowerCase(),
+        password_hash: hashedPassword,
+        first_name: firstName || '',
+        last_name: lastName || '',
+      })
+      .returning('*');
 
     const tokens = generateTokens(user);
-    refreshTokens.set(tokens.refreshToken, user.id);
+
+    // Store refresh token in database
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await db('refresh_tokens').insert({
+      user_id: user.id,
+      token: tokens.refreshToken,
+      expires_at: expiresAt,
+    });
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -100,18 +103,32 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = users.get(email.toLowerCase());
+    const user = await db('users')
+      .where({ email: email.toLowerCase() })
+      .whereNull('deleted_at')
+      .first();
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Update last login
+    await db('users').where({ id: user.id }).update({ last_login_at: db.fn.now() });
+
     const tokens = generateTokens(user);
-    refreshTokens.set(tokens.refreshToken, user.id);
+
+    // Store refresh token in database
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await db('refresh_tokens').insert({
+      user_id: user.id,
+      token: tokens.refreshToken,
+      expires_at: expiresAt,
+    });
 
     res.json({
       message: 'Login successful',
@@ -133,7 +150,13 @@ const refresh = async (req, res) => {
       return res.status(400).json({ error: 'Refresh token is required' });
     }
 
-    if (!refreshTokens.has(refreshToken)) {
+    // Check if token exists and is not expired
+    const storedToken = await db('refresh_tokens')
+      .where({ token: refreshToken })
+      .where('expires_at', '>', new Date())
+      .first();
+
+    if (!storedToken) {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
@@ -141,30 +164,33 @@ const refresh = async (req, res) => {
     try {
       decoded = jwt.verify(refreshToken, JWT_SECRET);
     } catch (err) {
-      refreshTokens.delete(refreshToken);
+      await db('refresh_tokens').where({ token: refreshToken }).del();
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
-    const userId = refreshTokens.get(refreshToken);
-    let user = null;
-    for (const u of users.values()) {
-      if (u.id === userId) {
-        user = u;
-        break;
-      }
-    }
+    const user = await db('users')
+      .where({ id: storedToken.user_id })
+      .whereNull('deleted_at')
+      .first();
 
     if (!user) {
-      refreshTokens.delete(refreshToken);
+      await db('refresh_tokens').where({ token: refreshToken }).del();
       return res.status(401).json({ error: 'User not found' });
     }
 
     // Revoke old refresh token
-    refreshTokens.delete(refreshToken);
+    await db('refresh_tokens').where({ token: refreshToken }).del();
 
     // Generate new tokens
     const tokens = generateTokens(user);
-    refreshTokens.set(tokens.refreshToken, user.id);
+
+    // Store new refresh token
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await db('refresh_tokens').insert({
+      user_id: user.id,
+      token: tokens.refreshToken,
+      expires_at: expiresAt,
+    });
 
     res.json({
       message: 'Token refreshed successfully',
@@ -197,7 +223,7 @@ const logout = async (req, res) => {
     const { refreshToken } = req.body;
 
     if (refreshToken) {
-      refreshTokens.delete(refreshToken);
+      await db('refresh_tokens').where({ token: refreshToken }).del();
     }
 
     res.json({ message: 'Logged out successfully' });
@@ -207,14 +233,10 @@ const logout = async (req, res) => {
   }
 };
 
-// Export users map for middleware access
-const getUsers = () => users;
-
 module.exports = {
   register,
   login,
   refresh,
   me,
   logout,
-  getUsers,
 };

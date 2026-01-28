@@ -5,7 +5,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest --detectOpenHandles --forceExit"
+    "test": "jest --detectOpenHandles --forceExit",
+    "migrate": "knex migrate:latest --knexfile src/db/knexfile.js",
+    "migrate:rollback": "knex migrate:rollback --knexfile src/db/knexfile.js",
+    "migrate:status": "knex migrate:status --knexfile src/db/knexfile.js",
+    "seed": "knex seed:run --knexfile src/db/knexfile.js"
   },
   "keywords": [
     "mma",
@@ -21,7 +25,9 @@
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "knex": "^3.1.0",
+    "pg": "^8.17.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",

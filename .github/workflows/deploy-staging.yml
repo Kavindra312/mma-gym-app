@@ -1,0 +1,45 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        run: |
+          curl -X POST "${{ secrets.RAILWAY_WEBHOOK_URL }}"
+        env:
+          RAILWAY_WEBHOOK_URL: ${{ secrets.RAILWAY_WEBHOOK_URL }}
+
+# ============================================
+# SETUP INSTRUCTIONS
+# ============================================
+#
+# 1. Create a Railway project at https://railway.app
+#
+# 2. In Railway dashboard:
+#    - Go to your project > Settings > Deploy
+#    - Copy the "Deploy Webhook" URL
+#
+# 3. In GitHub repository:
+#    - Go to Settings > Secrets and variables > Actions
+#    - Add a new secret: RAILWAY_WEBHOOK_URL
+#    - Paste the webhook URL from Railway
+#
+# 4. Configure Railway environment variables:
+#    - NODE_ENV=staging
+#    - DATABASE_URL (your Supabase connection string)
+#    - JWT_SECRET (generate a secure secret)
+#    - PORT=3001
+#
+# 5. Set the start command in Railway:
+#    npm start
+# ============================================

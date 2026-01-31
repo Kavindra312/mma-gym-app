@@ -1,14 +1,14 @@
 # CI/CD Pipeline
 
-This document describes the Continuous Integration and Continuous Deployment setup for the MMA Gym App.
+This document describes the Continuous Integration setup for the MMA Gym App.
 
 ## Overview
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Feature   │    │    Pull     │    │   Merge to  │    │   Deploy    │
-│   Branch    │───▶│   Request   │───▶│   develop   │───▶│  to Staging │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Feature   │    │    Pull     │    │   Merge     │
+│   Branch    │───▶│   Request   │───▶│   to main   │
+└─────────────┘    └─────────────┘    └─────────────┘
                           │
                     ┌─────▼─────┐
                     │    CI     │
@@ -16,11 +16,14 @@ This document describes the Continuous Integration and Continuous Deployment set
                     │ (Lint +   │
                     │  Tests)   │
                     └───────────┘
+                          │
+                    ┌─────▼─────┐
+                    │  ✅ Pass  │──▶ Can merge
+                    │  ❌ Fail  │──▶ Blocked
+                    └───────────┘
 ```
 
-## Workflows
-
-### 1. CI Workflow (`ci.yml`)
+## CI Workflow (`ci.yml`)
 
 **Triggers:**
 - Pull requests to `main` or `develop`
@@ -36,82 +39,31 @@ This document describes the Continuous Integration and Continuous Deployment set
 **Required Secrets:**
 - `DATABASE_URL` - Supabase connection string for running tests
 
-### 2. Deploy Staging Workflow (`deploy-staging.yml`)
-
-**Triggers:**
-- Push to `develop` branch
-
-**Steps:**
-1. Checkout code
-2. Trigger Railway deployment via webhook
-
-**Required Secrets:**
-- `RAILWAY_WEBHOOK_URL` - Railway deploy webhook URL
-
-## Branch Strategy
-
-```
-main (production)
-  │
-  └── develop (staging)
-        │
-        ├── feature/add-user-profile
-        ├── feature/qr-check-in
-        └── bugfix/fix-login-error
-```
-
-- **main** - Production-ready code only
-- **develop** - Integration branch, deploys to staging
-- **feature/*** - New features, branched from develop
-- **bugfix/*** - Bug fixes, branched from develop
-
 ## Setup Instructions
 
 ### 1. Add GitHub Secrets
 
 Go to your repository: **Settings > Secrets and variables > Actions**
 
-Add these secrets:
+Add this secret:
 
 | Secret | Description |
 |--------|-------------|
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
-| `RAILWAY_WEBHOOK_URL` | Railway deploy webhook (from Railway dashboard) |
 
-### 2. Configure Branch Protection
+### 2. Configure Branch Protection (Recommended)
 
 Go to: **Settings > Branches > Add rule**
 
-#### For `main` branch:
+For `main` branch:
 
 - [x] Require a pull request before merging
 - [x] Require status checks to pass before merging
   - [x] Require branches to be up to date before merging
   - Select required checks: `Lint & Test`
 - [x] Require conversation resolution before merging
-- [ ] Include administrators (optional)
 
-#### For `develop` branch:
-
-- [x] Require a pull request before merging
-- [x] Require status checks to pass before merging
-  - [x] Require branches to be up to date before merging
-  - Select required checks: `Lint & Test`
-
-### 3. Set Up Railway
-
-1. Create a new project at [railway.app](https://railway.app)
-2. Connect your GitHub repository
-3. Configure environment variables:
-   ```
-   NODE_ENV=staging
-   DATABASE_URL=<your-supabase-url>
-   JWT_SECRET=<generate-secure-secret>
-   PORT=3001
-   ```
-4. Set the start command: `npm start`
-5. Set the root directory: `backend`
-6. Copy the deploy webhook URL from **Settings > Deploy**
+This ensures failed tests block merging.
 
 ## Running Checks Locally
 
@@ -133,7 +85,7 @@ npm test
 ## Workflow Status
 
 Check workflow status at:
-- Actions tab: `https://github.com/Kavindra312/mma-gym-app/actions`
+- Actions tab: https://github.com/Kavindra312/mma-gym-app/actions
 - Status badge in README
 
 ## Troubleshooting
@@ -150,8 +102,10 @@ Check workflow status at:
 2. Manually fix remaining issues
 3. Commit and push
 
-### Deploy fails
+## Future: Staging Deployment
 
-1. Check Railway logs for errors
-2. Verify environment variables are set
-3. Ensure webhook URL is correct in GitHub secrets
+When ready for staging deployment, options include:
+- **Vercel** - Free tier, easy Node.js deployment
+- **Railway** - Simple container deployment
+- **Render** - Free tier with PostgreSQL support
+- **Fly.io** - Edge deployment with free tier

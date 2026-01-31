@@ -2,6 +2,7 @@
 
 > A modern gym membership and class scheduling platform built for martial arts gyms and their students
 
+[![CI](https://github.com/Kavindra312/mma-gym-app/actions/workflows/ci.yml/badge.svg)](https://github.com/Kavindra312/mma-gym-app/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Code of Conduct](https://img.shields.io/badge/code%20of-conduct-ff69b4.svg)](CODE_OF_CONDUCT.md)

@@ -6,6 +6,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest --detectOpenHandles --forceExit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "migrate": "knex migrate:latest --knexfile src/db/knexfile.js",
     "migrate:rollback": "knex migrate:rollback --knexfile src/db/knexfile.js",
     "migrate:status": "knex migrate:status --knexfile src/db/knexfile.js",
@@ -33,6 +35,7 @@
     "@babel/core": "^7.28.6",
     "@babel/preset-env": "^7.28.6",
     "babel-jest": "^30.2.0",
+    "eslint": "^9.39.2",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2"

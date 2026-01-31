@@ -12,13 +12,13 @@ const generateTokens = (user) => {
   const accessToken = jwt.sign(
     { userId: user.id, email: user.email },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN },
   );
 
   const refreshToken = jwt.sign(
     { userId: user.id, tokenId: crypto.randomUUID() },
     JWT_SECRET,
-    { expiresIn: JWT_REFRESH_EXPIRES_IN }
+    { expiresIn: JWT_REFRESH_EXPIRES_IN },
   );
 
   return { accessToken, refreshToken };
@@ -160,10 +160,9 @@ const refresh = async (req, res) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
-    let decoded;
     try {
-      decoded = jwt.verify(refreshToken, JWT_SECRET);
-    } catch (err) {
+      jwt.verify(refreshToken, JWT_SECRET);
+    } catch (_err) {
       await db('refresh_tokens').where({ token: refreshToken }).del();
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
